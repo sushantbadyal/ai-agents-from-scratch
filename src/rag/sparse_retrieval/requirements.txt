@@ -1,0 +1,16 @@
+# ==============================================================================
+# Sparse Retrieval / RAG tutorial — Python dependencies
+# ==============================================================================
+# Install with:   pip install -r requirements.txt
+#
+# SYSTEM PREREQUISITE (not a pip package):
+#   A Java 11+ JDK must be installed, because PyTerrier drives the Java-based
+#   Terrier search engine via an embedded JVM. Verify with:  javac -version
+# ==============================================================================
+
+numpy                 # array math + ranking in the TF-IDF intuition file (01)
+scikit-learn          # TfidfVectorizer + cosine_similarity for the from-scratch demo (01)
+datasets              # Hugging Face loader for the rag-mini-wikipedia corpus (02)
+python-terrier        # PyTerrier: inverted index + BM25/TF-IDF retrievers (03,04,06); needs Java 11+
+torch                 # PyTorch backend the LLM runs on; device detection (helpers, 05, 07)
+transformers          # loads + runs the Llama-3.2-3B generator via pipeline (helpers, 05, 07)

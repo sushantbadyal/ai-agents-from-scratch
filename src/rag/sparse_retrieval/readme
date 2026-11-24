@@ -1,0 +1,166 @@
+================================================================================
+ Sparse Retrieval  —  Retrieval-Augmented Generation (RAG) from scratch
+================================================================================
+
+WHAT THIS DIRECTORY IS ABOUT
+----------------------------
+This directory teaches SPARSE RETRIEVAL and how to plug it into a full
+Retrieval-Augmented Generation (RAG) pipeline, one runnable file at a time,
+built to a solid engineering standard (central config, logging, type hints,
+error handling, and on-disk index caching).
+
+"Retrieval" = given a question, find the most relevant documents from a corpus.
+"Sparse" retrieval represents every document as one long vector over the entire
+vocabulary — a slot for every word, non-zero only for the words that document
+actually contains. Most entries are therefore zero (hence "sparse"). Matching a
+query to a document reduces to comparing which important words they share. This
+is the family of classic, term-matching models: TF-IDF and BM25. They are fast,
+transparent, need no training, and remain strong baselines even in the LLM era.
+
+"RAG" = pair that retriever with a generator (an LLM). The retriever finds the
+facts; the LLM reads them and writes the answer. This lets a frozen model answer
+questions about information it was never trained on (recent events, private
+docs) — and, crucially, cite where the answer came from.
+
+
+========Actual sparse pipeline==============
+Tokenize docs
+Build vocabulary
+Compute TF / DF
+Store as inverted index (compressed sparse vectors)
+At query time:
+Convert query → sparse vector
+Use inverted index to compute similarity efficiently
+============================================
+
+
+CORE CONCEPTS COVERED
+---------------------
+  * Sparse vectors & the vocabulary-length representation of documents.
+  * TF-IDF (Term Frequency x Inverse Document Frequency) + cosine similarity.
+  * The INVERTED INDEX: term -> documents, the structure that makes retrieval
+    fast and lets the corpus exceed RAM.
+  * BM25: the modern default sparse model (TF saturation + length normalisation).
+  * Query cleaning/normalisation for a real search engine's parser.
+  * On-disk INDEX CACHING (build once, load thereafter).
+  * The GENERATOR (an instruction-tuned LLM) and its knowledge-cutoff limits.
+  * Grounding, attribution/citation, and returning sources in a RAG answer.
+  * The with-retrieval vs. without-retrieval contrast that proves RAG's value.
+
+
+THE RETRIEVAL ENGINE: WHY PYTERRIER, AND THE ALTERNATIVES
+---------------------------------------------------------
+We use PyTerrier (Python bindings over the Java Terrier engine). Each code file
+repeats the relevant slice of this comparison in its header; the summary:
+
+  ENGINE          LANG        PERSISTENCE     SCALE           WHY / WHY NOT HERE
+  --------------  ----------  --------------  --------------  ----------------------------
+  PyTerrier   ✅  Java(+py)   on-disk index   millions+       real IR stack, weighting
+                                                              models by name, LTR/rerank
+                                                              ready. Needs a JVM (Java 11+).
+  bm25s           pure py     RAM (+persist)  ~millions       fast, Java-free; but no full
+                                                              IR toolchain (parsing/eval).
+  rank_bm25       pure py     RAM only        ~thousands      simplest to read; O(N)/query,
+                                                              rebuilds each run — teaching
+                                                              tool, not for scale.
+  Elasticsearch   Java svc    on-disk         very large      the mainstream large-scale
+  / OpenSearch                                                engine; but a separate cluster
+                                                              to run — too heavy for a local
+                                                              tutorial.
+  Vector DBs      Go/Rust/    on-disk         very large      dense/semantic matching that
+  (Pinecone,      C++                                         sparse misses; needs an
+  Weaviate,                                                   embedding model + more compute.
+  Qdrant,                                                     A DIFFERENT (dense) paradigm;
+  pgvector)                                                   sparse is the right first
+                                                              lesson and half of HYBRID.
+
+Bottom line: sparse (BM25) is the correct foundation — cheap, transparent, high
+recall — and it is usually the first stage, optionally followed by a neural
+reranker or fused with dense retrieval ("hybrid search").
+
+
+THE GENERATOR: WHY LOCAL LLAMA, AND THE ALTERNATIVES
+----------------------------------------------------
+  * We use `unsloth/Llama-3.2-3B-Instruct` (non-gated) via the `transformers`
+    pipeline: offline, no API key/cost, reproducible, teaches the mechanics.
+  * NOT the gated `meta-llama/...` (needs Hub approval — set RAG_MODEL_ID to it
+    if you have access), NOT a hosted API (Claude/OpenAI: great quality, but
+    cost + network + not "from scratch"), NOT vLLM/TGI (the right high-throughput
+    serving path, just heavier to stand up than a single-process demo).
+
+
+LIBRARIES USED (and why)
+------------------------
+  * numpy          — array math; ranks similarity scores in file 01.
+  * scikit-learn   — TfidfVectorizer + cosine_similarity for the intuition demo.
+  * datasets       — one-call fetch + cache of the rag-mini-wikipedia corpus.
+  * python-terrier — the inverted index + BM25/TF-IDF retrievers. NEEDS Java 11+.
+  * torch          — the tensor backend the LLM runs on; device detection.
+  * transformers   — downloads + runs the Llama generator via `pipeline`.
+
+Install:
+    pip install -r requirements.txt
+    # System prerequisite: a Java 11+ JDK (verify with:  javac -version).
+
+
+CONFIGURATION (config.py)
+-------------------------
+All knobs live in `config.py` and are env-overridable, so the same code runs on
+a laptop, in CI, or on a GPU box without edits:
+    RAG_MODEL_ID         generator model id           (default: unsloth Llama-3.2-3B-Instruct)
+    RAG_WIKI_DATASET     HF dataset id                (default: rag-datasets/rag-mini-wikipedia)
+    RAG_TOP_K            passages retrieved per query (default: 5)
+    RAG_MAX_NEW_TOKENS   generated-answer cap         (default: 300)
+    RAG_INDEX_ROOT       where Terrier indexes live   (default: <tmp>/rag_sparse_retrieval)
+    RAG_LOG_LEVEL        logging verbosity            (default: INFO)
+
+
+FILES (what comes first and why)
+--------------------------------
+The numbered prefixes (01_, 02_, ...) mirror ../../llm_setup and encode the read
+/ run order: intuition -> real corpus -> index -> retrieval -> generation -> RAG.
+Each file only depends on ideas introduced before it. Support modules are not
+numbered (like ../../llm_setup's helper).
+
+  config.py                       — central config, logging, index paths, and the
+                                    helper that imports digit-prefixed modules.
+  helper_functions.py             — the generation layer: device detect, cached
+                                    Llama loader, chat-template helpers, chat_llama.
+  requirements.txt                — pip dependencies (+ the Java prerequisite note).
+
+  01_tfidf_intuition.py           — PART 1: what sparse retrieval IS (sklearn,
+                                    5-doc toy corpus, cosine + IDF weights).
+  02_load_external_corpus.py      — PART 2: load rag-mini-wikipedia, reshape to
+                                    {docno, text}.
+  03_build_inverted_index.py      — PART 2: build/CACHE the PyTerrier inverted
+                                    index (holds the engine-comparison rationale).
+  04_bm25_tfidf_retrievers.py     — PART 2: BM25 + TF-IDF retrievers + clean_query.
+  05_generator_llama.py           — PART 3: the Llama generator, answering with NO
+                                    retrieval (exposes the knowledge-cutoff gap).
+  06_synthetic_corpus_index.py    — PART 3: 15 ORIGINAL FICTIONAL paragraphs +
+                                    their index (reuses file 03's builder).
+  07_rag_pipeline.py              — PART 4: the reusable PyTerrierRAG class
+                                    (grounding, citation, sources returned).
+  08_with_vs_without_retrieval.py — PART 4: the payoff — same questions with vs.
+                                    without retrieval, side by side.
+
+
+HOW TO RUN
+----------
+Run any file from INSIDE this directory (so `import config`, `helper_functions`,
+and the digit-prefixed step imports resolve):
+
+    cd src/rag/sparse_retrieval
+    python 01_tfidf_intuition.py
+    python 02_load_external_corpus.py
+    ...
+    python 08_with_vs_without_retrieval.py
+
+Files 01–04 are CPU-only and light. Files 05–08 download the Llama weights
+(~6 GB) on first run and prefer a GPU or Apple-Silicon machine. The first index
+build downloads Terrier's jars and writes the index to RAG_INDEX_ROOT; later
+runs reuse it automatically.
+
+NOTE ON THE FICTIONAL CORPUS: every paragraph in 06_synthetic_corpus_index.py is
+invented purely to demonstrate retrieval. Do not treat any of it as real.
+================================================================================
