@@ -76,3 +76,9 @@ Example:
 ```bash
 RAG_TOP_K=10 RAG_LOG_LEVEL=DEBUG python 08_with_vs_without_retrieval.py
 ```
+
+## License
+
+Copyright (c) 2026 Sushant Badyal. **All rights reserved.**
+
+This is not open-source software. Viewing is permitted, but copying, modifying, or distributing this code is prohibited without prior written permission. See [LICENSE](LICENSE) for details.

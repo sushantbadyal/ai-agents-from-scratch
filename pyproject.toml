@@ -19,6 +19,7 @@ dependencies = [
     "datasets",         # Hugging Face loader for the rag-mini-wikipedia corpus
     "python-terrier",   # PyTerrier: inverted index + BM25/TF-IDF retrievers (needs Java 11+)
 ]
+license = { file = "LICENSE" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
