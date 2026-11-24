@@ -9,6 +9,15 @@ description = "AI Agents from Scratch"
 requires-python = "==3.14.2"
 dependencies = [
     "pydantic",
+    # ── LLM / generation stack (src/llm_setup, src/rag) ──
+    "torch",            # tensor backend the models run on
+    "transformers",     # loads + runs the Llama generator (pipeline, tokenizer)
+    # ── Sparse retrieval / RAG stack (src/rag/sparse_retrieval) ──
+    "numpy",            # array math + ranking in the TF-IDF intuition demo
+    "scikit-learn",     # TfidfVectorizer + cosine_similarity (from-scratch TF-IDF)
+    "matplotlib",       # heatmap visualization of the TF-IDF vectors
+    "datasets",         # Hugging Face loader for the rag-mini-wikipedia corpus
+    "python-terrier",   # PyTerrier: inverted index + BM25/TF-IDF retrievers (needs Java 11+)
 ]
 
 [tool.hatch.build.targets.wheel]
