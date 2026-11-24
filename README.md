@@ -20,6 +20,16 @@ source .venv_v1/bin/activate
 pip install -e .
 ```
 
+### Configuration and API keys
+
+API keys (`ANTHROPIC_API_KEY`, `OPEN_AI_API_KEY`, `HF_TOKEN`) and app settings are read from a JSON file that lives **outside** this repository. Point to it with the `APP_CONFIG_PATH` environment variable:
+
+```bash
+export APP_CONFIG_PATH="$HOME/path/to/ai-agents-from-scratch.json"
+```
+
+If it isn't set, the code looks for `~/.config/ai-agents-from-scratch/config.json`. Never commit this file.
+
 This installs everything the modules need: `torch`, `transformers`, `numpy`, `scikit-learn`, `datasets`, `python-terrier`, and `pydantic`.
 
 ## Running the modules
